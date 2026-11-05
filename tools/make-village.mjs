@@ -7,7 +7,7 @@
  * village square with the town hall, forge and library round it, 16 homes in clusters (Willow End
  * on its knoll, Eastbank on its green, singles by the lanes) facing every way the camera sees,
  * lanes winding between them, a lake and a field a step down, a hay hill. Villagers find their
- * way with Lumina's Nav (viewer.js), so the layout is free. 16 villagers r00..r15 stand at the home doors — the Hermes chats.
+ * way with Lumina's Nav, so the layout is free. 16 villagers r00..r15 stand at the home doors.
  *
  *   node tools/make-village.mjs [--out=<path>] [--check]
  *   node vendor/lumina/tools/check-level.mjs levels/village.json --strict
@@ -34,9 +34,9 @@ const OUT = path.resolve(root, String(args.out ?? FILE))
 const W = 84
 const D = 54
 const level = createEmptyLevel({ name: 'HermesFord', width: W, depth: D, fill: 'g', level: 2, border: 2 })
-level.subtitle = 'Where the Agents Live'
-level.author = 'Hermes Village'
-level.description = 'A river village under a wooded terrace: every villager is a Hermes chat.'
+level.subtitle = 'A Living Village'
+level.author = 'HermesFord'
+level.description = 'A river village under a wooded terrace, home to sixteen villagers and the roads between them.'
 level.environment = { ...level.environment, timeOfDay: 16.8, border: 'forest', outerScenery: true, godRays: true, dust: true }
 
 /** Fill [i0, i1) × [j0, j1) with a tile char and / or a height level. */
@@ -165,7 +165,7 @@ HOMES.forEach(([x, z, a, width, depth], k) => {
   const two = look.stories === 2
   pad(x, z, a, width, depth)
   addObject(level, 'house', x, z, {
-    rotation: a, name: `Home ${k + 1}`, light: true, // (the window light: on while its chat sleeps, viewer.js)
+    rotation: a, name: `Home ${k + 1}`, light: true, // (the window light: on at night)
     opts: {
       width, depth, ...look, stories: two ? 2 : 1, upperWall: look.upperWall ?? (two ? 'timber_frame' : ''),
       windowLights: true, lantern: k % 3 === 0, shutters: q > 0.15, woodpile: k % 4 === 1, doorHood: k % 3 === 2, gableFront: h01(k, 5) < 0.35, chimneySide: k % 2 ? 1 : -1, seed: 11 + k * 7,
@@ -282,11 +282,28 @@ for (const [kind, x, z, hgt] of [
   ['oak', 54.6, 47.6, 4.4],
 ]) addObject(level, 'tree', x, z, { opts: { kind, height: hgt, seed: Math.round(x * 10 + z) } })
 
-// ---- villagers: one per home (the Hermes chats bind to r00..r15) -------------------------------
-const PRESETS = ['traveler', 'merchant', 'scholar', 'farmer', 'hunter', 'cleric', 'villager', 'bard',
-  'innkeeper', 'elder', 'guard', 'dancer', 'swordsman', 'villager', 'farmer', 'scholar']
+// ---- villagers: one per home ----------------------------------------------------------------
+const VILLAGERS = [
+  ['Wren', 'traveler', ['I came down the north road this morning. The woods were full of mist.', 'The hay hill is the warmest place in the village after noon.']],
+  ['Mabel', 'merchant', ['Apples, ribbon, and good advice. Two of the three are free.', 'If you need the forge, follow the smoke.']],
+  ['Corin', 'scholar', ['The library keeps the village maps. Mind the ladder.', "I'm tracing the old riverbed. It used to run under the square."]],
+  ['Hal', 'farmer', ['The field by the lake is thin soil, but the beans like it.', "Rain tomorrow, I'd wager. The hens are already hiding."]],
+  ['Fleet', 'hunter', ['Quiet in the woods today. Even the boars are sleeping.', 'Bats come out over the water at dusk. Best not to stand still.']],
+  ['Alma', 'cleric', ['The well has never run dry. Not in my lifetime.', 'Sit by the square a while. The evening light is worth it.']],
+  ['Bram', 'villager', ['The town hall bell is a little fast. Nobody has the heart to fix it.', 'You can see the whole village from the hay hill.']],
+  ['Lyra', 'bard', ["I'm writing a song about the river. It keeps changing key.", 'The inn has a warm fire and a colder cider.']],
+  ['Nora', 'innkeeper', ["You look like you've been walking. There's stew on.", "Mind the step by the back door. It's older than the roof."]],
+  ['Rowan', 'elder', ['Spring is late, but the blossom knows better than we do.', 'The lanterns are lit at dusk. Follow them home.']],
+  ['Garrick', 'guard', ["Nothing to report. I'd like to keep it that way.", 'The east bridge holds. I checked it twice.']],
+  ['Esme', 'dancer', ['The square is better for dancing than for standing.', 'Music carries over the water. Listen.']],
+  ['Aldric', 'swordsman', ["The old drill ring is still behind the forge. Rust and all.", 'A slow walk is better than a fast wrong turn.']],
+  ['Tamsin', 'villager', ['My window faces the river. I wake up to the herons.', 'The bakery smell reaches the square before sunrise.']],
+  ['Odo', 'farmer', ['The hay hill needs turning before the rain.', 'Bring a lantern if you go into the woods at night.']],
+  ['Iris', 'scholar', ['Every stone in the square has a mark. Most are just cart tracks.', 'The archive is locked, but the reading room is open.']],
+]
 for (const d of doors) {
-  addObject(level, 'npc', d.x, d.z, { name: `Villager ${d.k + 1}`, preset: PRESETS[d.k], wander: 1.2, dialogue: ['…'] })
+  const [name, preset, dialogue] = VILLAGERS[d.k]
+  addObject(level, 'npc', d.x, d.z, { name, preset, wander: 1.2, dialogue })
   level.objects[level.objects.length - 1].id = `r${String(d.k).padStart(2, '0')}`
 }
 
@@ -308,7 +325,7 @@ addObject(level, 'region', 0, 0, { name: 'Village Square', sub: 'HermesFord', mi
 addObject(level, 'region', 0, 0, { name: 'River Hermes', sub: 'HermesFord', minX: RIVER0 - 3, maxX: RIVER1 + 3, minZ: 10, maxZ: D })
 addObject(level, 'region', 0, 0, { name: 'HermesFord', sub: '', minX: 0, maxX: W, minZ: 0, maxZ: D })
 
-level.spawn = { x: 26, z: 21, facing: 'up' }
+level.spawn = { x: 27, z: 21, facing: 'up' }
 
 // ---- output (Lumina's canonical tail, tools/make-sample-hamlet.mjs) ------------------------------
 const PLACEMENT_KEYS = { point: ['x', 'z'], line: ['x0', 'z0', 'x1', 'z1'], rect: ['minX', 'maxX', 'minZ', 'maxZ'] }

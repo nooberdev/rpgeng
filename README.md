@@ -1,143 +1,89 @@
-# HermesFord: Where the Agents Live
+# HermesFord
 
-A living HD-2D pixel-art village for [Hermes Desktop](https://hermes-agent.nousresearch.com/).
-Every Hermes chat is a villager. Open the **HermesFord** page from the sidebar to see at a glance
-who is working, who is waiting for you, who failed and who is asleep.
+A standalone HD-2D pixel-art village game: walk the lanes, talk to sixteen villagers, and watch the light, weather and seasons change.
 
-![HermesFord at golden hour: the village square with the Library, the Town Hall and the Forge](assets/banner.jpg)
+HermesFord is a fork of [XpycT/hermesford](https://github.com/XpycT/hermesford). All Hermes Desktop, AI agent and chat integration from the original project has been removed. What remains is the village itself, running on the vendored [Lumina](vendor/lumina) engine as an ordinary static web game: no accounts, no backend and no AI features.
 
-It is an indicator, not a game. The villagers only act out what the agents really do: no
-fake work and no controls except the camera. Clicking a villager opens its chat.
+![The village square at golden hour, with the Library, the Town Hall and the Forge beyond the campfire](assets/banner.jpg)
 
-| | |
-| --- | --- |
-| ![The village square at midday](assets/square.jpg) | ![The village at night: lit windows and lamps](assets/night.jpg) |
-| ![Hover a villager: its chat title, trade and current tool](assets/hover.jpg) | ![Slimes bouncing on the hay hill](assets/hayhill.jpg) |
+*The village at golden hour. The banner predates this standalone fork.*
 
-## Seasons
+## Play
 
-The village follows the calendar: spring, summer, autumn or winter, by today's date. Press **Y**
-to change the season: the screen fades to black and the village comes back re-dressed under the
-season's banner. The camera stays where it was.
-
-| | |
-| --- | --- |
-| ![Spring: young grass, daisies and cherry trees in blossom](assets/season-spring.jpg) | ![Summer: the village as drawn, every tree green](assets/season-summer.jpg) |
-| ![Autumn: russet grass, fallen leaves, red maples and golden birches](assets/season-autumn.jpg) | ![Winter: snow on the ground and roofs, icicles, snowy pines and bare trees](assets/season-winter.jpg) |
-
-- **Spring:** young grass and meadow flowers, cherries in blossom, petals in the air.
-- **Summer:** the village as drawn.
-- **Autumn:** russet grass, fallen leaves, stubble on the field, red maples and golden birches.
-- **Winter:** snow on the ground and roofs, trodden paths, frosted cobbles, icicles on the eaves,
-  snowy pines and bare trees, falling snow. The snow stays whatever the weather (R).
-
-The seasons are Luminati's season kit (its terrain, trees, ground sprites and sky) applied to the
-village map, so nothing new is drawn. The river does not freeze.
-
-## What the villagers do
-
-The plugin polls `session.active_list` / `session.list` and listens to `tool.*` / `message.*`
-gateway events, then maps each chat to a state:
-
-| Chat state | Villager |
-| --- | --- |
-| Waiting for you (approval, clarify) | goes to the Town Hall, a pulsing **!** over its head |
-| Turn failed | a skull over its head for a few seconds |
-| Running a tool | walks to the workplace for that tool and works there (see below) |
-| Thinking (turn running, no tool) | sits by the campfire, **…** over its head |
-| Idle | wanders around the square |
-| Not active | goes home; **zzz** over the roof, the window lit at night |
-
-| Tools | Trade | Place |
-| --- | --- | --- |
-| `terminal`, `execute_code`, `process*` | Blacksmith (the forge sparks while they work) | The Forge |
-| `web_search`, `web_extract`, `browser*`, `mcp__tavily*`, `mcp__scrapling*` | Hunter | the woods (boars, slimes, bats at night) |
-| `read_file`, `search_files`, `session_search` | Scribe | The Library |
-| `write_file`, `patch` | Carpenter | Carpentry |
-| `delegate_task`, `kanban*` | Messenger | Town Hall |
-| `memory`, `fact_store`, `skill*` | Keeper | the well |
-| `vision_analyze`, `image_generate`, `computer_use` | Painter | the lake |
-| anything else | Farmer | the field |
-
-Other features:
-
-- Party frames (top left) list the awake chats. Click one to open its chat.
-- **Follow a villager** (◀ ▶ at the bottom) makes the camera follow one chat.
-- The time of day and lighting follow your real clock. The page also has a minimap and a world
-  map (Tab).
-- Drag to pan, scroll or pinch to zoom, Q/E to rotate, T for the time of day, R for the weather,
-  Y for the season.
-- Rendering pauses when the page is hidden.
-
-## Installation
-
-Requires **Hermes Desktop ≥ 0.22.5** and WebGL.
-
-**From Git (CLI):**
-
-```bash
-hermes plugins install XpycT/hermesford
-hermes plugins enable hermesford
-```
-
-**From Hermes Desktop:** Capabilities → Plugins → **Install from Git**, enter `XpycT/hermesford`,
-then switch the plugin on. You can also use the one-click link
-`hermes://plugin/install?repo=XpycT/hermesford&enable=1`.
-
-After that, **HermesFord** appears in the sidebar and opens the `/village` page.
-
-**Manual:** copy `desktop/plugin.js` to `~/.hermes/desktop-plugins/hermesford/plugin.js` and turn
-it on under Capabilities → Plugins.
-
-## What it does and does not do
-
-- **Desktop-only.** `desktop/plugin.js` runs inside the plugin SDK surface. It registers no agent
-  tools, hooks, middleware or env vars.
-- **Reads** the session list and live session status through `host.request('session.list')` /
-  `session.active_list`, polled every 3 s, and gateway `tool.*` / `message.*` events. It never
-  writes to sessions. A click only calls `host.openSession`.
-- **No network calls**, no telemetry, no stored credentials. Nothing is persisted: the village
-  state lives in memory.
-- **Bundled code:** the whole bundle is built from this repository (≈2 MB minified). It contains
-  [three.js](https://threejs.org/) (MIT) and the Luminati engine (MIT, see below). All art
-  (sprites, textures, UI, fonts' pixel styling) is generated procedurally at runtime; there are
-  no binary assets.
-- `hermes plugins validate` passes. Its `caution` findings come from the bundled engine:
-  `invisible_unicode` is CJK and typographic characters in Luminati's strings and fonts, and
-  `inline_shell_exec` is a backtick-quoted melody notation in a code comment.
-
-## Credits
-
-HermesFord is built on **[Luminati](https://gitlab.com/stubborn-hug/lumina)**, an open-source
-2.5D pixel-art engine for three.js inspired by Square Enix's HD-2D games (MIT, © 2026 Luminati).
-The world, lighting, post-processing, villagers, critters, monster sprites, pathfinding (`Nav`) and
-the pixel-art UI are Luminati's. A snapshot lives unmodified in `vendor/lumina/` with its
-`LICENSE` and `VERSION`; `tools/vendor-lumina.sh` only rewrites four imports. The village map
-follows the layouts of Luminati's *Emberfall* and *Starfall Vale*.
-
-## Development
+Requirements: **Node.js 20 or newer** and a WebGL-capable browser.
 
 ```bash
 npm install
-npm run dev            # dev page with fake chats: http://127.0.0.1:5199/?hour=17
-npm test               # village simulation and seasons asserts
-npm run build          # → desktop/plugin.js
-npm run install-local  # build and copy to ~/.hermes/desktop-plugins/hermesford/
-node tools/make-village.mjs                                         # regenerate levels/village.json
-node vendor/lumina/tools/check-level.mjs levels/village.json --strict # Luminati's level checker
+npm run dev
 ```
 
-| Path | What it is |
+`npm run dev` builds the development bundle to `dev/dev.js` and serves the project at <http://127.0.0.1:5199/dev/>.
+
+To play the built game:
+
+```bash
+npm start
+```
+
+`npm start` builds the production bundle and serves the game at <http://127.0.0.1:5199/>.
+
+`npm run build` on its own only writes `dist/hermesford.js`; it does not start a server. Serve the project root with `node tools/serve.mjs` (or any static file server) after building.
+
+## Controls
+
+| Key | Action |
 | --- | --- |
-| `src/plugin.js` | registers the page and the sidebar entry; Hermes data → villagers |
-| `src/viewer.js` | hosts the Luminati level: engine, light, post-FX, villagers, critters, UI |
-| `src/village.js` | the pure simulation: chat state → where to go and what to do; the seasons (`seasonal`) |
-| `tools/make-village.mjs` | generates the map `levels/village.json` |
-| `desktop/plugin.js` | the built plugin (committed: it is what Hermes installs) |
+| WASD | Move |
+| Shift | Run |
+| Space | Talk / examine |
+| F / Enter | Choose an answer |
+| Q / E | Rotate camera |
+| Z / X | Zoom (or mouse wheel) |
+| N / Tab | World map |
+| T | Time of day |
+| R | Weather |
+| Y | Season |
+| P | Photo mode |
+| M | Music |
+| ` / F1 | Debug panel |
+| H | Hide controls |
 
-Dev-page query params: `?hour=N` (time of day), `?season=spring|summer|autumn|winter`,
-`?fake=0` (no fake events), `?panel=0` (hide the event panel).
+## What is in the village
 
-## License
+Sixteen named villagers live in HermesFord, each with a portrait, a trade and a few lines of dialogue. Wren, Mabel, Corin, Hal, Fleet and Alma live along the western lane and Willow End. Bram, Lyra, Nora, Rowan and Garrick keep the square and the roads around it. Esme, Aldric, Tamsin, Odo and Iris live over the river on Eastbank.
 
-[MIT](LICENSE). Luminati is MIT-licensed by its authors (`vendor/lumina/LICENSE`).
+The village square has the Town Hall, the Forge with its embers and smoke, the Library, market stalls, the well and a campfire. Carpentry sits on the lane below. From the square, lanes run west to Willow End, east across River Hermes to Eastbank, north to the wooded terrace and the windmill, and south to the fields, Mirror Lake and the hay hill. River Hermes runs the length of the map, falling from the upper terrace and passing under two bridges.
+
+Time of day, weather, seasons and photo mode are engine features. The game is single-player and entirely local.
+
+## Project layout
+
+- `index.html` - the page that loads the built game.
+- `src/main.js` - boots the Lumina `Game` with `levels/village.json`.
+- `levels/village.json` - the village level: terrain, objects, regions, villagers and their dialogue.
+- `vendor/lumina/` - the vendored Lumina engine (MIT).
+- `tools/build.mjs` - the esbuild bundle step.
+- `tools/serve.mjs` - the small static server used by `npm run dev` and `npm start`.
+- `tools/make-village.mjs` - the deterministic village generator.
+- `assets/` - the banner and other screenshots.
+- `dev/` and `dist/` - generated output, not source.
+
+## Development
+
+`npm test` validates `levels/village.json` with the vendored strict checker (`vendor/lumina/tools/check-level.mjs --strict`).
+
+`node tools/make-village.mjs` regenerates `levels/village.json`. The generator is deterministic: running it twice produces byte-identical output. To verify that the checked-in level matches the generator, run:
+
+```bash
+node tools/make-village.mjs --check
+```
+
+That command exits non-zero when the level differs from the generator output. Rebuild after changing source files with `npm run build` (or use `npm run dev` for the development bundle).
+
+## Credits and license
+
+HermesFord is released under the MIT License; see [LICENSE](LICENSE). Copyright (c) 2026 XpycT.
+
+The original HermesFord concept and code are by XpycT. This fork removes the Hermes integration and keeps only the standalone village game.
+
+The Lumina engine is by its authors, licensed under the MIT License; see [vendor/lumina/LICENSE](vendor/lumina/LICENSE).

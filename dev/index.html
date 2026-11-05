@@ -1,6 +1,333 @@
 <!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
-<title>village dev</title>
-<style>html,body{margin:0;height:100%;background:#111}#wrap{position:absolute;inset:0}canvas{display:block;width:100%;height:100%}</style>
-<div id="wrap"></div>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HermesFord</title>
+<meta name="description" content="A living HD-2D pixel-art village: walk the square, meet the villagers, watch the seasons turn.">
+<meta name="theme-color" content="#07080f">
+<style>
+  :root {
+    --ink: #07080f;
+    --gold: #c9a45c;
+    --gold-hi: #e8cf8a;
+    --gold-pale: #f4e3b3;
+    --tx-1: #f3ead7;
+    --warn: #e09a84;
+    --display: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, "Times New Roman", serif;
+    --mono: "Cascadia Mono", Consolas, "SF Mono", ui-monospace, monospace;
+  }
+
+  html { height: 100%; color-scheme: dark; -webkit-text-size-adjust: 100%; }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--ink);
+    font-family: var(--mono);
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* the game sits underneath the boot screen and fills the viewport */
+  #game { position: absolute; inset: 0; z-index: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* ---- the overlay ------------------------------------------------------------------------- */
+  #loading {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    place-items: center;
+    padding: clamp(18px, 4vw, 40px);
+    overflow: hidden;
+    background:
+      radial-gradient(120% 65% at 50% 112%, rgba(142, 63, 22, 0.22) 0%, rgba(142, 63, 22, 0) 60%),
+      radial-gradient(85% 55% at 50% -12%, rgba(26, 34, 66, 0.7) 0%, rgba(26, 34, 66, 0) 70%),
+      radial-gradient(100% 100% at 50% 50%, rgba(7, 8, 15, 0) 35%, rgba(3, 4, 9, 0.75) 100%),
+      var(--ink);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity 0.6s ease, visibility 0s linear 0s;
+  }
+  #loading.is-done {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0.6s;
+  }
+  /* nothing keeps ticking once the village is up (the element stays for the boot code to write to) */
+  #loading.is-done *, #loading.is-done *::before, #loading.is-done *::after { animation: none !important; }
+
+  /* night sky: two layers of 1–2 px stars, the near layer twinkling in hard steps */
+  .sky { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .sky::before, .sky::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0;
+    width: 2px; height: 2px;
+    background: transparent;
+  }
+  .sky::before {
+    box-shadow:
+      7vw 18vh 0 0 rgba(244, 227, 179, 0.55), 15vw 36vh 0 0 rgba(201, 164, 92, 0.40),
+      24vw 12vh 0 0 rgba(232, 207, 138, 0.65), 33vw 27vh 0 0 rgba(198, 189, 169, 0.35),
+      41vw 7vh 0 0 rgba(244, 227, 179, 0.50), 56vw 15vh 0 0 rgba(201, 164, 92, 0.45),
+      64vw 5vh 0 0 rgba(232, 207, 138, 0.60), 73vw 23vh 0 0 rgba(244, 227, 179, 0.40),
+      82vw 10vh 0 0 rgba(201, 164, 92, 0.50), 91vw 31vh 0 0 rgba(232, 207, 138, 0.45),
+      95vw 12vh 0 0 rgba(244, 227, 179, 0.35), 3vw 48vh 0 0 rgba(201, 164, 92, 0.30);
+    animation: twinkle 9s step-end infinite;
+  }
+  .sky::after {
+    width: 1px; height: 1px;
+    box-shadow:
+      11vw 55vh 0 0 rgba(82, 136, 230, 0.45), 19vw 72vh 0 0 rgba(176, 214, 255, 0.30),
+      29vw 45vh 0 0 rgba(82, 136, 230, 0.35), 38vw 63vh 0 0 rgba(201, 164, 92, 0.30),
+      48vw 38vh 0 0 rgba(82, 136, 230, 0.30), 59vw 57vh 0 0 rgba(176, 214, 255, 0.25),
+      69vw 44vh 0 0 rgba(82, 136, 230, 0.40), 79vw 68vh 0 0 rgba(201, 164, 92, 0.25),
+      89vw 52vh 0 0 rgba(82, 136, 230, 0.30), 5vw 80vh 0 0 rgba(176, 214, 255, 0.25);
+    animation: twinkle 13s step-end -4s infinite;
+  }
+  @keyframes twinkle {
+    0%, 64%, 100% { opacity: 0.95; }
+    72% { opacity: 0.40; }
+    80% { opacity: 0.80; }
+    88% { opacity: 0.45; }
+  }
+
+  /* embers drifting up from the fire off-screen, rising in small steps */
+  .ember {
+    position: absolute;
+    left: 0;
+    bottom: -6px;
+    width: 2px; height: 2px;
+    background: var(--gold-pale);
+    box-shadow: 2px 0 0 rgba(240, 138, 58, 0.5), -2px 0 0 rgba(240, 138, 58, 0.5),
+                0 2px 0 rgba(240, 138, 58, 0.5), 0 -2px 0 rgba(240, 138, 58, 0.5);
+    opacity: 0;
+    animation: ember-rise var(--d) steps(120) var(--dl) infinite,
+               ember-glow var(--d) step-end var(--dl) infinite;
+  }
+  .ember:nth-of-type(1) { left: 17%; --d: 14s; --dl: 0s; }
+  .ember:nth-of-type(2) { left: 38%; --d: 18s; --dl: -6s; width: 1px; height: 1px; }
+  .ember:nth-of-type(3) { left: 62%; --d: 16s; --dl: -11s; }
+  .ember:nth-of-type(4) { left: 83%; --d: 20s; --dl: -3s; width: 1px; height: 1px; }
+  @keyframes ember-rise { from { transform: translateY(0); } to { transform: translateY(-46vh); } }
+  @keyframes ember-glow {
+    0% { opacity: 0; }
+    8% { opacity: 0.7; }
+    70% { opacity: 0.32; }
+    90%, 100% { opacity: 0; }
+  }
+
+  /* ---- the plate --------------------------------------------------------------------------- */
+  .boot {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 26rem;
+    justify-self: center;
+    padding: clamp(26px, 6vw, 40px) clamp(22px, 6vw, 40px) clamp(22px, 4vw, 30px);
+    text-align: center;
+    background: linear-gradient(180deg, rgba(20, 26, 54, 0.42), rgba(7, 8, 15, 0.28));
+    border: 1px solid rgba(201, 164, 92, 0.26);
+    box-shadow:
+      inset 0 0 0 1px rgba(7, 8, 15, 0.85),
+      inset 0 1px 0 rgba(244, 227, 179, 0.06),
+      0 2.5rem 5rem rgba(0, 0, 0, 0.55);
+    animation: fade-in 0.5s steps(3, jump-none) both;
+  }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+  .ticks { position: absolute; inset: -1px; pointer-events: none; }
+  .ticks i { position: absolute; width: 11px; height: 11px; border: 0 solid rgba(201, 164, 92, 0.65); }
+  .ticks i:nth-child(1) { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; }
+  .ticks i:nth-child(2) { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; }
+  .ticks i:nth-child(3) { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; }
+  .ticks i:nth-child(4) { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; }
+
+  .crest { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 16px; }
+  .crest .rule {
+    flex: 0 1 64px;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(201, 164, 92, 0), rgba(201, 164, 92, 0.6));
+    animation: rule-in 0.7s steps(6, jump-none) 0.15s both;
+  }
+  .crest .rule:last-child { transform: scaleX(-1); }
+  @keyframes rule-in { from { clip-path: inset(0 50% 0 50%); } to { clip-path: inset(0 0 0 0); } }
+  .crest .star {
+    flex: none;
+    width: 10px; height: 10px;
+    background: var(--gold-hi);
+    filter: drop-shadow(0 0 5px rgba(232, 207, 138, 0.55));
+    clip-path: polygon(40% 0, 60% 0, 60% 40%, 100% 40%, 100% 60%, 60% 60%,
+                       60% 100%, 40% 100%, 40% 60%, 0 60%, 0 40%, 40% 40%);
+  }
+
+  h1 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: clamp(2rem, 9vw, 3.25rem);
+    font-weight: 400;
+    line-height: 1.02;
+    letter-spacing: 0.015em;
+    color: var(--tx-1);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55), 0 0 2.2rem rgba(201, 164, 92, 0.16);
+    animation: fade-in 0.6s steps(3, jump-none) 0.2s both;
+  }
+  .tagline {
+    margin: 0.7rem 0 0;
+    font-size: 0.6875rem;
+    letter-spacing: 0.26em;
+    text-indent: 0.26em;
+    text-transform: uppercase;
+    color: rgba(198, 189, 169, 0.72);
+    animation: fade-in 0.6s steps(3, jump-none) 0.32s both;
+  }
+
+  .track {
+    margin-top: clamp(26px, 7vw, 36px);
+    height: 4px;
+    background: rgba(7, 8, 15, 0.85);
+    box-shadow: inset 0 0 0 1px rgba(201, 164, 92, 0.22);
+    position: relative;
+    overflow: hidden;
+    animation: fade-in 0.6s steps(3, jump-none) 0.44s both;
+  }
+  .track::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(90deg, rgba(201, 164, 92, 0.08) 0 1px, transparent 1px 4px);
+  }
+  #loading-bar {
+    width: 0;
+    height: 100%;
+    position: relative;
+    background:
+      repeating-linear-gradient(90deg, rgba(7, 8, 15, 0.18) 0 1px, transparent 1px 3px),
+      linear-gradient(90deg, #a9813f 0%, var(--gold) 12%, var(--gold) calc(100% - 4px), var(--gold-pale) calc(100% - 4px));
+    box-shadow: 0 0 12px rgba(201, 164, 92, 0.35);
+    transition: width 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 1.4em;
+    margin: 14px 0 0;
+    animation: fade-in 0.6s steps(3, jump-none) 0.56s both;
+  }
+  .status .pip {
+    flex: none;
+    width: 3px; height: 3px;
+    background: var(--gold);
+    box-shadow: 0 0 6px rgba(201, 164, 92, 0.8);
+    animation: pip 1.8s step-end infinite;
+  }
+  @keyframes pip { 0%, 54%, 100% { opacity: 1; } 55%, 84% { opacity: 0.25; } }
+  #loading-label {
+    margin: 0;
+    font-size: 0.6875rem;
+    line-height: 1.45;
+    letter-spacing: 0.05em;
+    color: rgba(198, 189, 169, 0.88);
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+  }
+
+  .hint {
+    display: none;
+    margin: 1rem 0 0;
+  }
+  .hint .again {
+    padding: 5px 12px 6px;
+    font: inherit;
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    color: var(--gold-hi);
+    background: transparent;
+    border: 1px solid rgba(201, 164, 92, 0.5);
+    border-radius: 0;
+    cursor: pointer;
+  }
+  .hint .again:hover { background: rgba(201, 164, 92, 0.12); }
+  .hint .again:focus-visible { outline: 2px solid var(--gold-pale); outline-offset: 2px; }
+
+  /* ---- failure ----------------------------------------------------------------------------- */
+  #loading.is-error .track { opacity: 0.3; }
+  #loading.is-error .hint { display: block; }
+  #loading.is-error .status .pip {
+    background: var(--warn);
+    box-shadow: 0 0 6px rgba(224, 138, 114, 0.7);
+    animation: none;
+  }
+  #loading.is-error #loading-label { color: #efc4b5; }
+
+  /* ---- small screens ----------------------------------------------------------------------- */
+  @media (max-height: 460px) {
+    .crest { margin-bottom: 10px; }
+    .boot { padding-block: 20px; }
+    .track { margin-top: 20px; }
+  }
+
+  /* ---- reduced motion ---------------------------------------------------------------------- */
+  @media (prefers-reduced-motion: reduce) {
+    .boot, .boot h1, .tagline, .track, .status, .crest .rule,
+    .sky::before, .sky::after, .status .pip { animation: none; }
+    .ember { display: none; }
+    #loading-bar { transition: none; }
+    #loading { transition: opacity 0.2s linear, visibility 0s linear 0s; }
+    #loading.is-done { transition: opacity 0.2s linear, visibility 0s linear 0.2s; }
+  }
+</style>
+</head>
+<body>
+<div id="game"></div>
+
+<div id="loading">
+  <div class="sky" aria-hidden="true">
+    <i class="ember"></i><i class="ember"></i><i class="ember"></i><i class="ember"></i>
+  </div>
+
+  <div class="boot">
+    <span class="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    <div class="crest" aria-hidden="true">
+      <span class="rule"></span><span class="star"></span><span class="rule"></span>
+    </div>
+    <h1>HermesFord</h1>
+    <p class="tagline">A living village</p>
+
+    <div class="track" aria-hidden="true"><div id="loading-bar"></div></div>
+    <div class="status">
+      <i class="pip" aria-hidden="true"></i>
+      <p id="loading-label" role="status" aria-live="polite" aria-atomic="true">Lighting the lanterns</p>
+    </div>
+
+    <p class="hint"><button class="again" type="button">Try again</button></p>
+  </div>
+</div>
+
+<script>
+  // Safety net: if the boot code never clears the screen, step aside rather than hide the game.
+  (function () {
+    var el = document.getElementById('loading');
+    if (!el) return;
+    var again = el.querySelector('.again');
+    if (again) again.addEventListener('click', function () { location.reload(); });
+    setTimeout(function () {
+      if (!el.classList.contains('is-done') && !el.classList.contains('is-error')) {
+        el.classList.add('is-done');
+      }
+    }, 15000);
+  })();
+</script>
 <script type="module" src="./dev.js"></script>
+</body>
+</html>
